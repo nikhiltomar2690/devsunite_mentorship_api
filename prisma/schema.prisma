@@ -6,3 +6,200 @@ datasource db {
   provider = "postgresql"
   url = env("DATABASE_URL")
 }
+
+
+// ---------- ENUMS ----------
+
+enum UserRole {
+  MENTEE
+  MENTOR
+  ADMIN
+}
+
+enum MentorStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AvailabilitySlot {
+  MORNING
+  AFTERNOON
+  EVENING
+}
+
+// ---------- USER ----------
+model User {
+  id  String @id @default(uuid())
+  name String 
+  email String @unique
+  role UserRole @default(MENTEE)
+  isVerified Boolean @default(false)
+
+  mentorProfile MentorProfile?
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------- MENTOR PROFILE ----------
+model MentorProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+
+  fullName         String
+  currentCompany   String
+  experienceYears  Int
+  areasOfExpertise String[]
+  socialLinks      String[]
+  portfolioUrl     String
+  resumeUrl        String
+
+  mentorshipTypes  String[] // ["SHORT_TERM", "LONG_TERM"]
+  availability     AvailabilitySlot[]
+
+  status       MentorStatus @default(PENDING)
+  adminMessage String?
+
+  referralCode        String   @unique
+  referredByMentorId  String?
+  referredByMentor    MentorProfile? @relation("Referral", fields: [referredByMentorId], references: [id])
+  referredMentors     MentorProfile[] @relation("Referral")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------- MENTORSHIP CATEGORY ----------
+model MentorshipCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+
+  sessions ShortTermSession[]
+}
+
+// ---------- SHORT-TERM SESSION ----------
+model ShortTermSession {
+  id        String   @id @default(uuid())
+
+  menteeId  String
+  mentorId  String
+  categoryId String
+  paymentId String
+
+  mentee    User                @relation(fields: [menteeId], references: [id])
+  mentor    MentorProfile       @relation(fields: [mentorId], references: [id])
+  category  MentorshipCategory  @relation(fields: [categoryId], references: [id])
+  payment   Payment             @relation(fields: [paymentId], references: [id])
+
+  sessionDate DateTime
+  startTime   String
+  endTime     String
+
+  status   String   @default("PENDING") // you can enum later
+
+  createdAt DateTime @default(now())
+}
+
+// ---------- LONG-TERM PLAN ----------
+model LongTermPlan {
+  id        String   @id @default(uuid())
+
+  menteeId  String
+  mentorId  String
+
+  mentee   User          @relation(fields: [menteeId], references: [id])
+  mentor   MentorProfile @relation(fields: [mentorId], references: [id])
+
+  durationMonths Int
+  monthlyPrice   Float
+
+  startDate DateTime
+  endDate   DateTime
+
+  status String @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+}
+
+// ---------- PAYMENT ----------
+model Payment {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+
+  amount          Float
+  providerOrderId String
+  providerPaymentId String?
+  currency        String   @default("INR")
+
+  status          String   @default("CREATED")
+
+  createdAt DateTime @default(now())
+}
+
+// ---------- TESTIMONIAL ----------
+model Testimonial {
+  id        String   @id @default(uuid())
+  mentorId  String
+  menteeId  String
+
+  mentor    MentorProfile @relation(fields: [mentorId], references: [id])
+  mentee    User          @relation(fields: [menteeId], references: [id])
+
+  rating    Int
+  feedback  String
+
+  createdAt DateTime @default(now())
+}
+
+// ---------- DIGITAL PRODUCT ----------
+model DigitalProduct {
+  id          String   @id @default(uuid())
+  mentorId    String
+  mentor      MentorProfile @relation(fields: [mentorId], references: [id])
+
+  title       String
+  description String?
+  price       Float
+
+  fileKey     String
+  fileType    String // PDF or CSV
+
+  purchases   DigitalProductPurchase[]
+
+  createdAt DateTime @default(now())
+}
+
+// ---------- DIGITAL PRODUCT PURCHASE ----------
+model DigitalProductPurchase {
+  id        String   @id @default(uuid())
+  productId String
+  menteeId  String
+  paymentId String
+
+  product   DigitalProduct @relation(fields: [productId], references: [id])
+  mentee    User           @relation(fields: [menteeId], references: [id])
+  payment   Payment        @relation(fields: [paymentId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// ---------- REFERRAL COMMISSION ----------
+model ReferralCommission {
+  id                 String   @id @default(uuid())
+  referringMentorId  String
+  referredMentorId   String
+
+  referringMentor MentorProfile @relation("Referrer", fields: [referringMentorId], references: [id])
+  referredMentor  MentorProfile @relation("Referred", fields: [referredMentorId], references: [id])
+
+  commissionRate Float @default(0.02)
+  totalEarned    Float @default(0)
+
+  createdAt DateTime @default(now())
+}

@@ -1,4 +1,4 @@
-export interface MentorProfile {
+export interface Mentor {
   id: string;
   userId: string;
 
